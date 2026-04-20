@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +8,7 @@ type StatCardProps = {
   hint?: string;
   icon?: ReactNode;
   tone?: "default" | "success" | "warning";
+  href?: string;
 };
 
 const tones = {
@@ -27,8 +29,8 @@ const tones = {
   }
 };
 
-export function StatCard({ label, value, hint, icon, tone = "default" }: StatCardProps) {
-  return (
+export function StatCard({ label, value, hint, icon, tone = "default", href }: StatCardProps) {
+  const content = (
     <article className={cn("rounded-card border border-white/70 p-4 shadow-soft", tones[tone].card)}>
       <div className="mb-3 flex items-center justify-between">
         <span className="font-display text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate">
@@ -42,4 +44,10 @@ export function StatCard({ label, value, hint, icon, tone = "default" }: StatCar
       {hint ? <p className={cn("mt-2 text-[0.82rem] leading-5", tones[tone].hint)}>{hint}</p> : null}
     </article>
   );
+
+  if (!href) {
+    return content;
+  }
+
+  return <Link href={href} className="block">{content}</Link>;
 }

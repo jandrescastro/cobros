@@ -4,6 +4,7 @@ import { PageShell } from "@/components/page-shell";
 import { requireProfile } from "@/lib/auth";
 import { getClientes } from "@/lib/billing";
 import { ClientCard } from "@/modules/clientes/components/client-card";
+import { ClientFormCard } from "@/modules/clientes/components/client-form-card";
 
 export default async function ClientesPage() {
   const profile = await requireProfile(["collector"]);
@@ -12,15 +13,16 @@ export default async function ClientesPage() {
   return (
     <PageShell
       title="Clientes"
-      description="Consulta tus clientes asignados y entra al detalle de cada uno sin salir del flujo de cobro."
+      description="Crea clientes nuevos, entra al detalle de cada uno y administra los cobros de la cartera compartida."
       role={profile.rol}
       viewerName={profile.nombre}
       actions={undefined}
     >
+      <ClientFormCard />
       {clientes.length === 0 ? (
         <EmptyState
-          title="Sin clientes asignados"
-          description="Cuando un administrador te asigne clientes, apareceran aqui automaticamente."
+          title="Todavia no hay clientes"
+          description="Usa el formulario superior para crear el primer cliente de la cartera compartida."
         />
       ) : (
         clientes.map((cliente) => <ClientCard key={cliente.id} cliente={cliente} />)

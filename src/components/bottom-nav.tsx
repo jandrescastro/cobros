@@ -10,15 +10,17 @@ type BottomNavProps = {
   role: AppRole;
 };
 
-const collectorItems = [
+const collectorItems: Array<{ href: string; label: string; icon: typeof LayoutDashboard; ariaLabel?: string }> = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/mes", label: "Mes", icon: CreditCard },
-  { href: "/metricas", label: "Metricas", icon: BarChart3 },
+  { href: "/metricas", label: "", icon: BarChart3, ariaLabel: "Metricas" },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/pendientes", label: "Pendientes", icon: TriangleAlert }
 ];
 
-const adminItems = [{ href: "/admin/usuarios", label: "Usuarios", icon: ShieldCheck }];
+const adminItems: Array<{ href: string; label: string; icon: typeof ShieldCheck; ariaLabel?: string }> = [
+  { href: "/admin/usuarios", label: "Usuarios", icon: ShieldCheck }
+];
 
 export function BottomNav({ role }: BottomNavProps) {
   const pathname = usePathname();
@@ -36,13 +38,14 @@ export function BottomNav({ role }: BottomNavProps) {
             <li key={item.href}>
               <Link
                 href={item.href}
+                aria-label={item.ariaLabel ?? item.label}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.06em] transition",
                   active ? "bg-ink text-white" : "text-slate hover:bg-sand"
                 )}
               >
                 <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
+                {item.label ? <span>{item.label}</span> : <span className="sr-only">Metricas</span>}
               </Link>
             </li>
           );

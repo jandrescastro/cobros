@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/auth-cookies";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/crear-contrasena", "/auth/confirm"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

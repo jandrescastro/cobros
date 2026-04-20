@@ -13,6 +13,13 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
+export function parseCurrencyInput(value: string) {
+  const normalized = value.trim().replace(/\s+/g, "").replace(/\./g, "").replace(/,/g, ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export function monthLabel(year: number, month: number) {
   return new Intl.DateTimeFormat("es-CO", {
     month: "long",

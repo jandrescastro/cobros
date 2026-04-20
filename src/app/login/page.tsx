@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth";
+import { InviteSessionBridge } from "@/app/login/invite-session-bridge";
 import { loginWithPassword } from "@/modules/auth/actions";
 
 type LoginPageProps = {
@@ -9,7 +10,7 @@ type LoginPageProps = {
 };
 
 const errorMessages: Record<string, string> = {
-  credenciales: "No pudimos iniciar sesion con ese correo y contrasena.",
+  credenciales: "No pudimos iniciar sesion con ese usuario y contrasena.",
   perfil: "Tu usuario existe, pero todavia no tiene perfil configurado."
 };
 
@@ -26,6 +27,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center bg-app-gradient px-4 py-8 text-ink">
       <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-soft">
+        <InviteSessionBridge />
         <div className="mb-6 space-y-3">
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-ink text-white">
             <LockKeyhole className="h-5 w-5" />
@@ -35,7 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <h1 className="font-display text-3xl font-extrabold uppercase">Cobros mensuales</h1>
           </div>
           <p className="text-sm leading-6 text-slate">
-            Cada usuario entra con su propio acceso y solo ve los clientes que le asignaste.
+            Cada usuario entra con su propio acceso y trabaja sobre la misma cartera compartida.
           </p>
         </div>
 
@@ -45,24 +47,23 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <ShieldCheck className="h-4 w-4" />
               Admin
             </p>
-            Gestiona usuarios y asignaciones.
+            Gestiona usuarios y configuracion general.
           </div>
           <div className="rounded-2xl bg-sand p-3 text-sm text-slate">
             <p className="mb-1 flex items-center gap-2 font-semibold text-ink">
               <UserRound className="h-4 w-4" />
               Usuario
             </p>
-            Revisa solo su cartera asignada.
+            Trabaja sobre la cartera compartida.
           </div>
         </div>
 
         <form action={loginWithPassword} className="space-y-3">
           <input
-            name="email"
-            type="email"
+            name="username"
             required
             className="w-full rounded-2xl border border-slate/15 px-4 py-3 text-sm outline-none"
-            placeholder="Correo"
+            placeholder="Usuario"
           />
           <input
             name="password"

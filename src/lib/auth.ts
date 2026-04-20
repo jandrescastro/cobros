@@ -60,7 +60,7 @@ export async function getCurrentProfile(): Promise<(AppProfile & { accessToken: 
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, nombre, rol")
+    .select("id, email, nombre, rol, gestiona_clientes_propios")
     .eq("id", session.userId)
     .single();
 

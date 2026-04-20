@@ -1,14 +1,18 @@
-﻿import { CURRENT_MONTH, CURRENT_YEAR, mockClientes, mockCobros } from "@/lib/mock-data";
+import { CURRENT_MONTH, CURRENT_YEAR, mockClientes, mockCobros } from "@/lib/mock-data";
 import { getCurrentProfile } from "@/lib/auth";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Cliente, Cobro, MetricaMensual, PendienteAcumulado, ResumenDashboard } from "@/lib/types";
 
+const COBRO_META_PREFIX = "__COBRO_META__";
+const CLIENTE_META_PREFIX = "__CLIENTE_META__";
+
 type DatabaseCliente = {
   id: string;
   nombre: string;
-  telefono: string;
-  direccion: string;
   cuota_mensual: number | string;
+  direccion?: string | null;
+  dia_cobro_sugerido: number | null;
+  responsable_cobro: "JOSE" | "HECTOR" | null;
   activo: boolean;
 };
 
@@ -18,7 +22,9 @@ type DatabaseCobro = {
   anio: number;
   mes: number;
   monto: number | string;
-  estado: "pagado" | "pendiente";
+  monto_original?: number | string | null;
+  monto_abonado?: number | string | null;
+  estado: "pagado" | "pendiente" | "abono";
   fecha_pago: string | null;
   observacion: string | null;
 };
@@ -28,16 +34,61 @@ type BillingSnapshot = {
   cobros: Cobro[];
 };
 
-function normalizePhone(value: string) {
-  return value.replace(/\D/g, "");
+type LegacyCobroMeta = {
+  legacyStatus?: "pagado" | "pendiente" | "abono";
+  montoOriginal?: number;
+  montoAbonado?: number;
+};
+
+type LegacyClienteMeta = {
+  dia_cobro_sugerido?: number;
+  responsable_cobro?: "JOSE" | "HECTOR";
+};
+
+function sortClientesBySuggestedDay(clientes: Cliente[]) {
+  return [...clientes].sort((a, b) => {
+    const dayA = a.dia_cobro_sugerido ?? 99;
+    const dayB = b.dia_cobro_sugerido ?? 99;
+
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
+}
+
+function sortCobrosDelMesByPriority(
+  items: Array<{
+    cliente: Cliente;
+    cobro: Cobro;
+  }>
+) {
+  return [...items].sort((a, b) => {
+    const aIsPaid = a.cobro.estado === "pagado";
+    const bIsPaid = b.cobro.estado === "pagado";
+
+    if (aIsPaid !== bIsPaid) {
+      return aIsPaid ? 1 : -1;
+    }
+
+    const dayA = a.cliente.dia_cobro_sugerido ?? 99;
+    const dayB = b.cliente.dia_cobro_sugerido ?? 99;
+
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+
+    return a.cliente.nombre.localeCompare(b.cliente.nombre, "es");
+  });
 }
 
 function buildClienteFingerprint(cliente: Cliente) {
   return [
     cliente.nombre.trim().toLowerCase(),
-    normalizePhone(cliente.telefono),
-    cliente.direccion.trim().toLowerCase(),
-    String(cliente.cuota_mensual)
+    String(cliente.cuota_mensual),
+    String(cliente.dia_cobro_sugerido ?? ""),
+    String(cliente.responsable_cobro ?? "")
   ].join("|");
 }
 
@@ -88,36 +139,76 @@ function dedupeSnapshot(snapshot: BillingSnapshot): BillingSnapshot {
 }
 
 function normalizeCliente(cliente: DatabaseCliente): Cliente {
+  const legacyMeta = extractLegacyClienteMeta(cliente.direccion ?? null);
+
   return {
     ...cliente,
-    cuota_mensual: Number(cliente.cuota_mensual)
+    cuota_mensual: Number(cliente.cuota_mensual),
+    dia_cobro_sugerido: cliente.dia_cobro_sugerido ?? legacyMeta?.dia_cobro_sugerido ?? null,
+    responsable_cobro: cliente.responsable_cobro ?? legacyMeta?.responsable_cobro ?? null,
+    tiene_pagos_realizados: false
   };
+}
+
+function extractLegacyClienteMeta(direccion: string | null) {
+  if (!direccion?.startsWith(CLIENTE_META_PREFIX)) {
+    return null as LegacyClienteMeta | null;
+  }
+
+  try {
+    return JSON.parse(direccion.slice(CLIENTE_META_PREFIX.length)) as LegacyClienteMeta;
+  } catch {
+    return null as LegacyClienteMeta | null;
+  }
+}
+
+function extractLegacyCobroMeta(observacion: string | null) {
+  if (!observacion?.startsWith(COBRO_META_PREFIX)) {
+    return { meta: null as LegacyCobroMeta | null, message: observacion };
+  }
+
+  const rawWithoutPrefix = observacion.slice(COBRO_META_PREFIX.length);
+  const firstBreak = rawWithoutPrefix.indexOf("\n");
+  const rawMeta = firstBreak >= 0 ? rawWithoutPrefix.slice(0, firstBreak) : rawWithoutPrefix;
+  const rawMessage = firstBreak >= 0 ? rawWithoutPrefix.slice(firstBreak + 1).trim() : "";
+
+  try {
+    return {
+      meta: JSON.parse(rawMeta) as LegacyCobroMeta,
+      message: rawMessage || null
+    };
+  } catch {
+    return { meta: null as LegacyCobroMeta | null, message: observacion };
+  }
 }
 
 function normalizeCobro(cobro: DatabaseCobro): Cobro {
+  const { meta, message } = extractLegacyCobroMeta(cobro.observacion);
+  const monto = Number(cobro.monto);
+  const estado = meta?.legacyStatus === "abono" ? "abono" : cobro.estado;
+  const montoOriginal =
+    cobro.monto_original != null
+      ? Number(cobro.monto_original)
+      : typeof meta?.montoOriginal === "number"
+        ? meta.montoOriginal
+        : monto;
+  const montoAbonado =
+    cobro.monto_abonado != null
+      ? Number(cobro.monto_abonado)
+      : typeof meta?.montoAbonado === "number"
+        ? meta.montoAbonado
+        : estado === "pagado"
+          ? montoOriginal
+          : 0;
+
   return {
     ...cobro,
-    monto: Number(cobro.monto)
+    estado,
+    monto,
+    monto_original: montoOriginal,
+    monto_abonado: montoAbonado,
+    observacion: message
   };
-}
-
-async function getAccessibleClientIds(accessToken: string, userId: string) {
-  const supabase = getSupabaseServerClient(accessToken);
-
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("user_client_access")
-    .select("cliente_id")
-    .eq("user_id", userId);
-
-  if (error || !data) {
-    return [];
-  }
-
-  return data.map((row) => row.cliente_id);
 }
 
 async function getDatabaseSnapshot(): Promise<BillingSnapshot | null> {
@@ -133,54 +224,71 @@ async function getDatabaseSnapshot(): Promise<BillingSnapshot | null> {
     return null;
   }
 
-  let allowedClientIds: string[] | null = null;
-
-  if (profile.rol === "collector") {
-    allowedClientIds = await getAccessibleClientIds(profile.accessToken, profile.id);
-
-    if (allowedClientIds.length === 0) {
-      return {
-        clientes: [],
-        cobros: []
-      };
-    }
-  }
-
-  let clientesQuery = supabase
+  const clientesQuery = supabase
     .from("clientes")
-    .select("id, nombre, telefono, direccion, cuota_mensual, activo")
+    .select("id, nombre, cuota_mensual, direccion, dia_cobro_sugerido, responsable_cobro, activo")
     .order("nombre");
 
-  if (allowedClientIds) {
-    clientesQuery = clientesQuery.in("id", allowedClientIds);
-  }
+  let { data: clientesData, error: clientesError } = await clientesQuery;
 
-  const { data: clientesData, error: clientesError } = await clientesQuery;
+  if (clientesError) {
+    const fallback = await supabase.from("clientes").select("id, nombre, cuota_mensual, direccion, activo").order("nombre");
+
+    clientesData = (fallback.data ?? []).map((cliente) => ({
+      ...cliente,
+      dia_cobro_sugerido: null,
+      responsable_cobro: null
+    }));
+    clientesError = fallback.error;
+  }
 
   if (clientesError) {
     return null;
   }
 
-  let cobrosQuery = supabase
+  const cobrosQuery = supabase
     .from("cobros")
-    .select("id, cliente_id, anio, mes, monto, estado, fecha_pago, observacion")
+    .select("id, cliente_id, anio, mes, monto, monto_original, monto_abonado, estado, fecha_pago, observacion")
     .order("anio", { ascending: false })
     .order("mes", { ascending: false });
 
-  if (allowedClientIds) {
-    cobrosQuery = cobrosQuery.in("cliente_id", allowedClientIds);
-  }
+  let { data: cobrosData, error: cobrosError } = await cobrosQuery;
 
-  const { data: cobrosData, error: cobrosError } = await cobrosQuery;
+  if (cobrosError) {
+    const fallback = await supabase
+      .from("cobros")
+      .select("id, cliente_id, anio, mes, monto, estado, fecha_pago, observacion")
+      .order("anio", { ascending: false })
+      .order("mes", { ascending: false });
+
+    cobrosData = (fallback.data ?? []).map((cobro) => ({
+      ...cobro,
+      monto_original: null,
+      monto_abonado: null
+    }));
+    cobrosError = fallback.error;
+  }
 
   if (cobrosError) {
     return null;
   }
 
-  return dedupeSnapshot({
+  const snapshot = dedupeSnapshot({
     clientes: (clientesData ?? []).map(normalizeCliente),
     cobros: (cobrosData ?? []).map(normalizeCobro)
   });
+
+  const clientesConPagos = new Set(
+    snapshot.cobros.filter((cobro) => cobro.estado === "pagado").map((cobro) => cobro.cliente_id)
+  );
+
+  return {
+    clientes: snapshot.clientes.map((cliente) => ({
+      ...cliente,
+      tiene_pagos_realizados: clientesConPagos.has(cliente.id)
+    })),
+    cobros: snapshot.cobros
+  };
 }
 
 async function getBillingSnapshot(): Promise<BillingSnapshot> {
@@ -203,6 +311,8 @@ function buildMonthlyCharge(cliente: Cliente, year: number, month: number): Cobr
     anio: year,
     mes: month,
     monto: cliente.cuota_mensual,
+    monto_original: cliente.cuota_mensual,
+    monto_abonado: 0,
     estado: "pendiente",
     fecha_pago: null,
     observacion: "Cobro generado automaticamente para cliente activo"
@@ -211,7 +321,7 @@ function buildMonthlyCharge(cliente: Cliente, year: number, month: number): Cobr
 
 export async function getClientes() {
   const { clientes } = await getBillingSnapshot();
-  return clientes;
+  return sortClientesBySuggestedDay(clientes);
 }
 
 export async function getCobrosByCliente(clienteId: string) {
@@ -234,20 +344,22 @@ export async function getCobroDelMes(clienteId: string, year = CURRENT_YEAR, mon
 export async function buildCobrosDelMes(year = CURRENT_YEAR, month = CURRENT_MONTH) {
   const { clientes, cobros } = await getBillingSnapshot();
 
-  return clientes
+  return sortCobrosDelMesByPriority(
+    sortClientesBySuggestedDay(clientes)
     .filter((cliente) => cliente.activo)
     .map((cliente) => ({
       cliente,
       cobro:
         cobros.find((item) => item.cliente_id === cliente.id && item.anio === year && item.mes === month) ??
         buildMonthlyCharge(cliente, year, month)
-    }));
+    }))
+  );
 }
 
 export async function getResumenDashboard(year = CURRENT_YEAR, month = CURRENT_MONTH): Promise<ResumenDashboard> {
   const cobrosDelMes = (await buildCobrosDelMes(year, month)).map((item) => item.cobro);
   const clientes = await getClientes();
-  const pendientes = cobrosDelMes.filter((cobro) => cobro.estado === "pendiente");
+  const pendientes = cobrosDelMes.filter((cobro) => cobro.estado !== "pagado");
 
   return {
     totalClientesActivos: clientes.filter((cliente) => cliente.activo).length,
@@ -265,7 +377,7 @@ export async function getPendientesAcumulados(): Promise<PendienteAcumulado[]> {
   return clientes
     .map((cliente) => {
       const mesesPendientes = cobros
-        .filter((cobro) => cobro.cliente_id === cliente.id && cobro.estado === "pendiente")
+        .filter((cobro) => cobro.cliente_id === cliente.id && cobro.estado !== "pagado")
         .sort((a, b) => b.anio - a.anio || b.mes - a.mes);
 
       return {
@@ -276,7 +388,16 @@ export async function getPendientesAcumulados(): Promise<PendienteAcumulado[]> {
       };
     })
     .filter((item) => item.cantidadPendientes > 0)
-    .sort((a, b) => b.totalPendiente - a.totalPendiente);
+    .sort((a, b) => {
+      const dayA = a.cliente.dia_cobro_sugerido ?? 99;
+      const dayB = b.cliente.dia_cobro_sugerido ?? 99;
+
+      if (dayA !== dayB) {
+        return dayA - dayB;
+      }
+
+      return a.cliente.nombre.localeCompare(b.cliente.nombre, "es");
+    });
 }
 
 export async function getHistoricoCliente(clienteId: string) {
@@ -284,7 +405,7 @@ export async function getHistoricoCliente(clienteId: string) {
 
   return cobros.map((cobro) => ({
     cobro,
-    esArrastre: cobro.estado === "pendiente" && (cobro.anio < CURRENT_YEAR || cobro.mes < CURRENT_MONTH)
+    esArrastre: cobro.estado !== "pagado" && (cobro.anio < CURRENT_YEAR || cobro.mes < CURRENT_MONTH)
   }));
 }
 

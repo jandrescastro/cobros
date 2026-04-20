@@ -19,13 +19,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const selectedYear = Number(params?.anio) || CURRENT_YEAR;
   const selectedMonth = Number(params?.mes) || CURRENT_MONTH;
   const resumen = await getResumenDashboard(selectedYear, selectedMonth);
-  const cobrosDelMes = (await buildCobrosDelMes(selectedYear, selectedMonth)).slice(0, 3);
+  const cobrosDelMesCompletos = await buildCobrosDelMes(selectedYear, selectedMonth);
+  const cobrosDelMes = cobrosDelMesCompletos.slice(0, 3);
+  const clientesQuePagaron = cobrosDelMesCompletos.filter(({ cobro }) => cobro.estado === "pagado").length;
   const pendientes = (await getPendientesAcumulados()).slice(0, 3);
 
   return (
     <PageShell
       title="Mensualidades"
-      description="Visualiza rapidamente que se cobro, que sigue pendiente y quien necesita seguimiento dentro de tu cartera asignada."
       role={profile.rol}
       viewerName={profile.nombre}
     >
@@ -53,10 +54,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           icon={<Users className="h-4.5 w-4.5 text-ink" />}
         />
         <StatCard
-          label="Cobros"
-          value={String(cobrosDelMes.length)}
-          hint="Muestra del periodo actual"
+          label="Ya pagaron"
+          value={String(clientesQuePagaron)}
+          hint="Clientes al dia en este periodo"
           icon={<CreditCard className="h-4.5 w-4.5 text-ink" />}
+          href={`/mes?anio=${selectedYear}&mes=${selectedMonth}&estado=pagado`}
         />
       </div>
 
@@ -76,20 +78,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               className={
                 cobro.estado === "pendiente"
                   ? "flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-4 py-3"
-                  : "flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
+                  : cobro.estado === "abono"
+                    ? "flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
+                    : "flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
               }
             >
               <div>
                 <p className="font-medium">{cliente.nombre}</p>
-                <p className={cobro.estado === "pendiente" ? "text-sm text-red-700" : "text-sm text-emerald-700"}>
-                  {formatCurrency(cobro.monto)}
+                <p
+                  className={
+                    cobro.estado === "pendiente"
+                      ? "text-sm text-red-700"
+                      : cobro.estado === "abono"
+                        ? "text-sm text-amber-700"
+                        : "text-sm text-emerald-700"
+                  }
+                >
+                  {formatCurrency(cobro.estado === "pagado" ? cobro.monto_original : cobro.monto)}
                 </p>
               </div>
               <span
                 className={
                   cobro.estado === "pendiente"
                     ? "text-sm font-semibold uppercase tracking-wide text-red-600"
-                    : "text-sm font-semibold uppercase tracking-wide text-emerald-700"
+                    : cobro.estado === "abono"
+                      ? "text-sm font-semibold uppercase tracking-wide text-amber-700"
+                      : "text-sm font-semibold uppercase tracking-wide text-emerald-700"
                 }
               >
                 {cobro.estado}
