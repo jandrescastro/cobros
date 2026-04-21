@@ -8,6 +8,7 @@ import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabas
 import { parseCurrencyInput } from "@/lib/utils";
 
 const CLIENTE_META_PREFIX = "__CLIENTE_META__";
+const COBRO_META_PREFIX = "__COBRO_META__";
 
 function cleanText(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -34,6 +35,18 @@ function buildLegacyClientMeta(diaCobroSugerido: number, responsableCobro: "JOSE
     dia_cobro_sugerido: diaCobroSugerido,
     responsable_cobro: responsableCobro
   })}`;
+}
+
+function hasProtectedPaymentHistory(observacion: string | null, estado: string) {
+  if (estado === "pagado" || estado === "abono") {
+    return true;
+  }
+
+  if (!observacion?.startsWith(COBRO_META_PREFIX)) {
+    return false;
+  }
+
+  return observacion.includes('"legacyStatus":"pagado"') || observacion.includes('"legacyStatus":"abono"');
 }
 
 export async function createCliente(formData: FormData) {
@@ -208,17 +221,16 @@ export async function deleteCliente(formData: FormData) {
     redirect("/clientes?error=cliente");
   }
 
-  const { count, error: pagosError } = await supabase
+  const { data: cobrosRelacionados, error: pagosError } = await supabase
     .from("cobros")
-    .select("id", { count: "exact", head: true })
-    .eq("cliente_id", clienteId)
-    .in("estado", ["pagado", "abono"]);
+    .select("estado, observacion")
+    .eq("cliente_id", clienteId);
 
   if (pagosError) {
     redirect("/clientes?error=pagos");
   }
 
-  if ((count ?? 0) > 0) {
+  if ((cobrosRelacionados ?? []).some((cobro) => hasProtectedPaymentHistory(cobro.observacion, cobro.estado))) {
     redirect("/clientes?error=pagos-realizados");
   }
 
