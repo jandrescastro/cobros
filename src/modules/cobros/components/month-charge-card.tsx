@@ -80,7 +80,7 @@ export function MonthChargeCard({ cliente, cobro }: MonthChargeCardProps) {
               type="text"
               inputMode="numeric"
               defaultValue={saldoPendiente.toLocaleString("es-CO")}
-              className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-sm font-semibold outline-none"
+              className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-[13px] font-semibold outline-none"
               placeholder="Monto"
             />
           </div>
@@ -99,13 +99,13 @@ export function MonthChargeCard({ cliente, cobro }: MonthChargeCardProps) {
           <input type="hidden" name="currentStatus" value={cobro.estado} />
 
           {isPaid ? null : (
-            <div className="grid gap-1.5 md:grid-cols-[0.9fr_1fr_auto]">
+            <div className="grid gap-1.5 sm:grid-cols-[0.88fr_1fr_auto]">
               <div>
                 <p className="mb-1 text-[11px] text-slate">Registrar como</p>
                 <select
                   name="paymentType"
                   defaultValue={isAbono ? "abono" : "total"}
-                  className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-sm outline-none"
+                  className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-[13px] outline-none"
                 >
                   <option value="total">Pago total</option>
                   <option value="abono">Realizo abono</option>
@@ -118,14 +118,14 @@ export function MonthChargeCard({ cliente, cobro }: MonthChargeCardProps) {
                   type="text"
                   inputMode="numeric"
                   defaultValue={saldoPendiente.toLocaleString("es-CO")}
-                  className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-sm outline-none"
+                  className="w-full rounded-2xl border border-slate/15 bg-white px-3 py-1.5 text-[13px] outline-none"
                   placeholder="Solo si fue abono"
                 />
               </div>
-              <div className="flex items-end justify-end">
+              <div className="flex items-end sm:justify-end">
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[11px] font-semibold text-white"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-ink px-3 py-2 text-[11px] font-semibold text-white sm:w-auto sm:px-3.5 sm:py-1.5"
                 >
                   <ArrowRight className="h-3 w-3" />
                   Guardar
@@ -139,7 +139,7 @@ export function MonthChargeCard({ cliente, cobro }: MonthChargeCardProps) {
               type="submit"
               className={
                 isPaid
-                  ? "inline-flex items-center gap-1 rounded-full border border-slate/20 bg-white px-3 py-1.5 text-xs font-semibold text-slate"
+                  ? "inline-flex items-center gap-1 rounded-full border border-slate/20 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate"
                   : "hidden"
               }
             >
