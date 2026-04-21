@@ -112,6 +112,13 @@ to authenticated
 using (true)
 with check (true);
 
+drop policy if exists "authenticated_delete_clientes" on clientes;
+create policy "authenticated_delete_clientes"
+on clientes
+for delete
+to authenticated
+using (true);
+
 drop policy if exists "admins_manage_cobros" on cobros;
 create policy "admins_manage_cobros"
 on cobros

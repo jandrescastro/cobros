@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { CURRENT_MONTH, CURRENT_YEAR } from "@/lib/mock-data";
 import { requireProfile } from "@/lib/auth";
 import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -198,13 +199,13 @@ export async function deleteCliente(formData: FormData) {
   const supabase = getSupabaseServiceClient() ?? getSupabaseServerClient(profile.accessToken);
 
   if (!supabase) {
-    return;
+    redirect("/clientes?error=servidor");
   }
 
   const clienteId = cleanText(formData.get("cliente_id"));
 
   if (!clienteId) {
-    return;
+    redirect("/clientes?error=cliente");
   }
 
   const { count, error: pagosError } = await supabase
@@ -213,8 +214,12 @@ export async function deleteCliente(formData: FormData) {
     .eq("cliente_id", clienteId)
     .eq("estado", "pagado");
 
-  if (pagosError || (count ?? 0) > 0) {
-    return;
+  if (pagosError) {
+    redirect("/clientes?error=pagos");
+  }
+
+  if ((count ?? 0) > 0) {
+    redirect("/clientes?error=pagos-realizados");
   }
 
   const { error } = await supabase
@@ -223,11 +228,12 @@ export async function deleteCliente(formData: FormData) {
     .eq("id", clienteId);
 
   if (error) {
-    return;
+    redirect("/clientes?error=eliminar");
   }
 
   revalidatePath("/clientes");
   revalidatePath("/");
   revalidatePath("/mes");
   revalidatePath("/pendientes");
+  redirect("/clientes?deleted=1");
 }
