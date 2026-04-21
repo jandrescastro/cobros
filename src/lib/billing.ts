@@ -279,7 +279,7 @@ async function getDatabaseSnapshot(): Promise<BillingSnapshot | null> {
   });
 
   const clientesConPagos = new Set(
-    snapshot.cobros.filter((cobro) => cobro.estado === "pagado").map((cobro) => cobro.cliente_id)
+    snapshot.cobros.filter((cobro) => cobro.estado === "pagado" || cobro.estado === "abono").map((cobro) => cobro.cliente_id)
   );
 
   return {

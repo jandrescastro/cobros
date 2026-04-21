@@ -44,7 +44,7 @@ export function ClientCard({ cliente }: ClientCardProps) {
             disabled={cliente.tiene_pagos_realizados}
             title={
               cliente.tiene_pagos_realizados
-                ? "No puedes borrar clientes que ya tuvieron pagos realizados"
+                ? "No puedes borrar clientes que ya tuvieron pagos o abonos registrados"
                 : "Eliminar cliente"
             }
             className={

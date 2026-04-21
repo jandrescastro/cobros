@@ -14,7 +14,7 @@ const errorMessages: Record<string, string> = {
   servidor: "No fue posible conectar con Supabase para borrar el cliente.",
   cliente: "No pudimos identificar el cliente que querias borrar.",
   pagos: "No pudimos validar si el cliente ya tiene pagos registrados.",
-  "pagos-realizados": "No puedes borrar clientes que ya tuvieron pagos realizados.",
+  "pagos-realizados": "No puedes borrar clientes que ya tuvieron pagos o abonos registrados.",
   eliminar: "No fue posible borrar el cliente seleccionado."
 };
 

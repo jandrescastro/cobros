@@ -212,7 +212,7 @@ export async function deleteCliente(formData: FormData) {
     .from("cobros")
     .select("id", { count: "exact", head: true })
     .eq("cliente_id", clienteId)
-    .eq("estado", "pagado");
+    .in("estado", ["pagado", "abono"]);
 
   if (pagosError) {
     redirect("/clientes?error=pagos");
