@@ -1,10 +1,11 @@
-﻿import { BarChart3, CircleDollarSign, TriangleAlert } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, CircleDollarSign, FileSpreadsheet, TriangleAlert } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { SectionCard } from "@/components/section-card";
 import { StatCard } from "@/components/stat-card";
 import { requireProfile } from "@/lib/auth";
 import { getMetricasMensuales, getResumenDashboard } from "@/lib/billing";
-import { CURRENT_MONTH, CURRENT_YEAR } from "@/lib/mock-data";
+import { resolveSelectedPeriod } from "@/lib/period";
 import { formatCurrency, getMonthOptions } from "@/lib/utils";
 import { MonthSummaryStrip } from "@/modules/meses/components/month-summary-strip";
 
@@ -15,12 +16,12 @@ type MetricasPageProps = {
 export default async function MetricasPage({ searchParams }: MetricasPageProps) {
   const profile = await requireProfile(["collector"]);
   const params = searchParams ? await searchParams : undefined;
-  const selectedYear = Number(params?.anio) || CURRENT_YEAR;
-  const selectedMonth = Number(params?.mes) || CURRENT_MONTH;
+  const { year: selectedYear, month: selectedMonth } = resolveSelectedPeriod(params);
   const resumen = await getResumenDashboard(selectedYear, selectedMonth);
   const metricas = await getMetricasMensuales(selectedYear);
   const maxMonto = Math.max(...metricas.map((item) => item.montoCobrado + item.montoPendiente), 1);
   const meses = getMonthOptions();
+  const exportHref = `/api/exportes/metricas?anio=${selectedYear}&mes=${selectedMonth}`;
 
   return (
     <PageShell
@@ -30,6 +31,14 @@ export default async function MetricasPage({ searchParams }: MetricasPageProps) 
       viewerName={profile.nombre}
     >
       <MonthSummaryStrip year={selectedYear} month={selectedMonth} />
+
+      <Link
+        href={exportHref}
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-soft"
+      >
+        <FileSpreadsheet className="h-4 w-4" />
+        Descargar Excel del mes
+      </Link>
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
