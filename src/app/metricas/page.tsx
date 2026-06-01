@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, CircleDollarSign, FileSpreadsheet, TriangleAlert } from "lucide-react";
+import { BarChart3, CircleDollarSign, FileText, FileSpreadsheet, TriangleAlert } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { SectionCard } from "@/components/section-card";
 import { StatCard } from "@/components/stat-card";
@@ -22,6 +22,7 @@ export default async function MetricasPage({ searchParams }: MetricasPageProps) 
   const maxMonto = Math.max(...metricas.map((item) => item.montoCobrado + item.montoPendiente), 1);
   const meses = getMonthOptions();
   const exportHref = `/api/exportes/metricas?anio=${selectedYear}&mes=${selectedMonth}`;
+  const pdfHref = `/api/exportes/metricas/pdf?anio=${selectedYear}&mes=${selectedMonth}`;
 
   return (
     <PageShell
@@ -32,13 +33,22 @@ export default async function MetricasPage({ searchParams }: MetricasPageProps) 
     >
       <MonthSummaryStrip year={selectedYear} month={selectedMonth} />
 
-      <Link
-        href={exportHref}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-soft"
-      >
-        <FileSpreadsheet className="h-4 w-4" />
-        Descargar Excel del mes
-      </Link>
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href={exportHref}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-soft"
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Excel
+        </Link>
+        <Link
+          href={pdfHref}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-ink/10 bg-white px-4 text-sm font-semibold text-ink shadow-soft"
+        >
+          <FileText className="h-4 w-4" />
+          PDF
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
