@@ -15,7 +15,7 @@ export function ClientCard({ cliente }: ClientCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">{cliente.nombre}</h3>
-          <p className="text-sm text-slate">Cliente activo para cobro mensual.</p>
+          <p className="text-sm text-slate">{cliente.activo ? "Cliente activo para cobro mensual." : "Retirado. Conserva historial y deudas."}</p>
         </div>
         <StatusBadge status={cliente.activo ? "activo" : "inactivo"} />
       </div>
@@ -41,20 +41,20 @@ export function ClientCard({ cliente }: ClientCardProps) {
           <input type="hidden" name="cliente_id" value={cliente.id} />
           <button
             type="submit"
-            disabled={cliente.tiene_pagos_realizados}
+            disabled={!cliente.activo}
             title={
-              cliente.tiene_pagos_realizados
-                ? "No puedes borrar clientes que ya tuvieron pagos o abonos registrados"
-                : "Eliminar cliente"
+              !cliente.activo
+                ? "Cliente retirado; su historial se conserva"
+                : "Retirar de futuras mensualidades y conservar historial"
             }
             className={
-              cliente.tiene_pagos_realizados
+              !cliente.activo
                 ? "inline-flex items-center gap-2 rounded-full border border-slate/15 px-4 py-2 text-sm font-medium text-slate/40"
                 : "inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600"
             }
           >
             <Trash2 className="h-4 w-4" />
-            Eliminar
+            {cliente.activo ? "Retirar cliente" : "Retirado"}
           </button>
         </form>
       </div>

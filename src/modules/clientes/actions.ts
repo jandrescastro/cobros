@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { CURRENT_MONTH, CURRENT_YEAR } from "@/lib/mock-data";
 import { requireProfile } from "@/lib/auth";
+import { getCurrentPeriod } from "@/lib/period";
 import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { parseCurrencyInput } from "@/lib/utils";
 
@@ -107,11 +107,13 @@ export async function createCliente(formData: FormData) {
   }
 
   if (crearPendienteActual) {
+    const currentPeriod = getCurrentPeriod();
+
     await supabase.from("cobros").upsert(
       {
         cliente_id: clienteCreado.id,
-        anio: CURRENT_YEAR,
-        mes: CURRENT_MONTH,
+        anio: currentPeriod.year,
+        mes: currentPeriod.month,
         monto: cuotaMensual,
         estado: "pendiente",
         fecha_pago: null,
@@ -230,13 +232,9 @@ export async function deleteCliente(formData: FormData) {
     redirect("/clientes?error=pagos");
   }
 
-  if ((cobrosRelacionados ?? []).some((cobro) => hasProtectedPaymentHistory(cobro.observacion, cobro.estado))) {
-    redirect("/clientes?error=pagos-realizados");
-  }
-
   const { error } = await supabase
     .from("clientes")
-    .delete()
+    .update({ activo: false })
     .eq("id", clienteId);
 
   if (error) {
@@ -247,5 +245,7 @@ export async function deleteCliente(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/mes");
   revalidatePath("/pendientes");
+  revalidatePath("/metricas");
+  revalidatePath(`/clientes/${clienteId}`);
   redirect("/clientes?deleted=1");
 }

@@ -78,6 +78,7 @@ export default async function ClienteDetailPage({ params }: ClienteDetailPagePro
               className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm outline-none"
               placeholder="Cuota mensual"
             />
+            <p className="mt-2 text-xs text-slate">La nueva cuota aplica a mensualidades nuevas. Los cobros anteriores conservan su valor; puedes ajustar cada saldo en el historial.</p>
           </div>
 
           <div className="space-y-3">

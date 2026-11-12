@@ -1,5 +1,6 @@
-import { CURRENT_MONTH, CURRENT_YEAR, mockClientes, mockCobros } from "@/lib/mock-data";
+import { mockClientes, mockCobros } from "@/lib/mock-data";
 import { getCurrentProfile } from "@/lib/auth";
+import { getCurrentPeriod } from "@/lib/period";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Cliente, Cobro, MetricaMensual, PendienteAcumulado, ResumenDashboard } from "@/lib/types";
 
@@ -335,29 +336,38 @@ export async function getClienteById(clienteId: string) {
   return clientes.find((cliente) => cliente.id === clienteId) ?? null;
 }
 
-export async function getCobroDelMes(clienteId: string, year = CURRENT_YEAR, month = CURRENT_MONTH) {
+export async function getCobroDelMes(clienteId: string, year?: number, month?: number) {
   const { cobros } = await getBillingSnapshot();
+  const currentPeriod = getCurrentPeriod();
+  const selectedYear = year ?? currentPeriod.year;
+  const selectedMonth = month ?? currentPeriod.month;
 
-  return cobros.find((cobro) => cobro.cliente_id === clienteId && cobro.anio === year && cobro.mes === month);
+  return cobros.find((cobro) => cobro.cliente_id === clienteId && cobro.anio === selectedYear && cobro.mes === selectedMonth);
 }
 
-export async function buildCobrosDelMes(year = CURRENT_YEAR, month = CURRENT_MONTH) {
+export async function buildCobrosDelMes(year?: number, month?: number) {
   const { clientes, cobros } = await getBillingSnapshot();
+  const currentPeriod = getCurrentPeriod();
+  const selectedYear = year ?? currentPeriod.year;
+  const selectedMonth = month ?? currentPeriod.month;
 
   return sortCobrosDelMesByPriority(
     sortClientesBySuggestedDay(clientes)
-    .filter((cliente) => cliente.activo)
+    .filter((cliente) => cliente.activo || cobros.some((item) => item.cliente_id === cliente.id && item.anio === selectedYear && item.mes === selectedMonth))
     .map((cliente) => ({
       cliente,
       cobro:
-        cobros.find((item) => item.cliente_id === cliente.id && item.anio === year && item.mes === month) ??
-        buildMonthlyCharge(cliente, year, month)
+        cobros.find((item) => item.cliente_id === cliente.id && item.anio === selectedYear && item.mes === selectedMonth) ??
+        buildMonthlyCharge(cliente, selectedYear, selectedMonth)
     }))
   );
 }
 
-export async function getResumenDashboard(year = CURRENT_YEAR, month = CURRENT_MONTH): Promise<ResumenDashboard> {
-  const cobrosDelMes = (await buildCobrosDelMes(year, month)).map((item) => item.cobro);
+export async function getResumenDashboard(year?: number, month?: number): Promise<ResumenDashboard> {
+  const currentPeriod = getCurrentPeriod();
+  const selectedYear = year ?? currentPeriod.year;
+  const selectedMonth = month ?? currentPeriod.month;
+  const cobrosDelMes = (await buildCobrosDelMes(selectedYear, selectedMonth)).map((item) => item.cobro);
   const clientes = await getClientes();
   const pendientes = cobrosDelMes.filter((cobro) => cobro.estado !== "pagado");
 
@@ -402,22 +412,27 @@ export async function getPendientesAcumulados(): Promise<PendienteAcumulado[]> {
 
 export async function getHistoricoCliente(clienteId: string) {
   const cobros = await getCobrosByCliente(clienteId);
+  const currentPeriod = getCurrentPeriod();
 
   return cobros.map((cobro) => ({
     cobro,
-    esArrastre: cobro.estado !== "pagado" && (cobro.anio < CURRENT_YEAR || cobro.mes < CURRENT_MONTH)
+    esArrastre:
+      cobro.estado !== "pagado" &&
+      (cobro.anio < currentPeriod.year || (cobro.anio === currentPeriod.year && cobro.mes < currentPeriod.month))
   }));
 }
 
-export async function getMetricasMensuales(anio = CURRENT_YEAR): Promise<MetricaMensual[]> {
+export async function getMetricasMensuales(anio?: number): Promise<MetricaMensual[]> {
+  const currentPeriod = getCurrentPeriod();
+  const selectedYear = anio ?? currentPeriod.year;
   const metricas = await Promise.all(
     Array.from({ length: 12 }, async (_, index) => {
       const mes = index + 1;
-      const resumen = await getResumenDashboard(anio, mes);
-      const cobros = await buildCobrosDelMes(anio, mes);
+      const resumen = await getResumenDashboard(selectedYear, mes);
+      const cobros = await buildCobrosDelMes(selectedYear, mes);
 
       return {
-        anio,
+        anio: selectedYear,
         mes,
         montoCobrado: resumen.montoCobrado,
         montoPendiente: resumen.montoPendiente,
